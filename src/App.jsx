@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List } from 'lucide-react';
+import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon } from 'lucide-react';
 
 export default function App() {
   // --- データ管理 ---
@@ -14,6 +14,7 @@ export default function App() {
   const [inputTitle, setInputTitle] = useState('');
   const [inputAuthor, setInputAuthor] = useState('');
   const [inputCategory, setInputCategory] = useState('文芸書');
+  const [inputCoverUrl, setInputCoverUrl] = useState(''); // 画像URL用ステート
 
   // カテゴリー定義とテーマカラーの紐付け
   const CATEGORY_SETTINGS = {
@@ -46,6 +47,7 @@ export default function App() {
     setInputTitle('');
     setInputAuthor('');
     setInputCategory('文芸書');
+    setInputCoverUrl('');
   };
 
   // --- 編集モード開始 ---
@@ -55,6 +57,8 @@ export default function App() {
     setInputTitle(book.title);
     setInputAuthor(book.authors[0]);
     setInputCategory(book.category || '文芸書');
+    // URL設定がある場合はフォームに入れる
+    setInputCoverUrl(book.coverType === 'url' ? book.coverValue : '');
     setView('add');
   };
 
@@ -62,7 +66,14 @@ export default function App() {
   const handleSaveBook = () => {
     if (!inputTitle.trim()) { alert('本のタイトルを入力してください'); return; }
 
-    const coverColor = CATEGORY_SETTINGS[inputCategory]?.color || "bg-gray-500";
+    // 画像URLがあれば 'url' タイプ、なければ 'color' タイプで保存
+    let coverType = 'color';
+    let coverValue = CATEGORY_SETTINGS[inputCategory]?.color || "bg-gray-500";
+
+    if (inputCoverUrl.trim()) {
+      coverType = 'url';
+      coverValue = inputCoverUrl.trim();
+    }
 
     if (editingId) {
       setBooks(prev => prev.map(book => book.id === editingId ? {
@@ -70,8 +81,8 @@ export default function App() {
         title: inputTitle,
         authors: [inputAuthor || '著者不明'],
         category: inputCategory,
-        coverType: 'color',
-        coverValue: coverColor
+        coverType: coverType,
+        coverValue: coverValue
       } : book));
     } else {
       const newBook = {
@@ -82,8 +93,8 @@ export default function App() {
         status: 'reading',
         addedAt: new Date().toISOString(),
         completedAt: null,
-        coverType: 'color',
-        coverValue: coverColor
+        coverType: coverType,
+        coverValue: coverValue
       };
       setBooks(prev => [newBook, ...prev]);
     }
@@ -321,8 +332,13 @@ export default function App() {
                       if (displayMode === 'gallery') {
                         return (
                            <div key={book.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 group hover:shadow-md transition">
-                              <div className={`w-full aspect-[2/3] rounded overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-2 ${book.coverValue}`}>
-                                <span className="font-bold text-sm line-clamp-4">{book.title}</span>
+                              {/* 表紙: 画像ならimg、色ならdiv */}
+                              <div className={`w-full aspect-[2/3] rounded overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-2 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+                                {book.coverType === 'url' ? (
+                                  <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
+                                ) : (
+                                  <span className="font-bold text-sm line-clamp-4">{book.title}</span>
+                                )}
                               </div>
                               <div className="flex-1">
                                 <h3 className="font-bold line-clamp-2 text-sm mb-1">{book.title}</h3>
@@ -348,8 +364,13 @@ export default function App() {
                       // リスト表示用のカード
                       return (
                         <div key={book.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4">
-                          <div className={`w-20 h-28 rounded flex-shrink-0 overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-1 ${book.coverValue}`}>
-                             <span className="font-bold text-xs line-clamp-3 leading-tight">{book.title}</span>
+                          {/* 表紙: 画像ならimg、色ならdiv */}
+                          <div className={`w-20 h-28 rounded flex-shrink-0 overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-1 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+                             {book.coverType === 'url' ? (
+                               <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
+                             ) : (
+                               <span className="font-bold text-xs line-clamp-3 leading-tight">{book.title}</span>
+                             )}
                           </div>
                           <div className="flex-1 flex flex-col justify-between">
                             <div>
@@ -402,6 +423,33 @@ export default function App() {
                     </select>
                   </div>
                 </div>
+                {/* 画像登録フォームの追加 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">表紙画像 (URL)</label>
+                  <div className="relative">
+                    <ImageIcon size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="text"
+                      value={inputCoverUrl}
+                      onChange={(e) => setInputCoverUrl(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">※空欄の場合はカテゴリーの色が適用されます</p>
+                  
+                  {/* プレビュー表示 */}
+                  <div className="mt-4 flex justify-center">
+                    <div className={`w-24 h-32 rounded shadow-md flex items-center justify-center text-white text-center p-2 text-xs font-bold overflow-hidden ${inputCoverUrl ? 'bg-gray-100' : (CATEGORY_SETTINGS[inputCategory]?.color || 'bg-gray-500')}`}>
+                      {inputCoverUrl ? (
+                         <img src={inputCoverUrl} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
+                      ) : (
+                         <span>{inputTitle || 'タイトル'}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 mt-6">
                   <button onClick={() => { resetForm(); setView('dashboard'); }} className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-200 transition">キャンセル</button>
                   <button onClick={handleSaveBook} className="flex-1 bg-gray-800 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-black transition">{editingId ? '更新する' : '登録する'}</button>
