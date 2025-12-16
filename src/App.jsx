@@ -153,20 +153,35 @@ export default function App() {
     return `${m}分`;
   };
 
+  // --- ナビゲーションボタン (PC/スマホ共通) ---
+  const NavButton = ({ targetView, icon: Icon, label }) => (
+    <button 
+      onClick={() => setView(targetView)} 
+      className={`relative p-2 rounded-full flex flex-col items-center justify-center w-full md:w-auto md:aspect-square md:hover:bg-gray-100 transition-colors
+        ${view === targetView ? 'text-indigo-600' : 'text-gray-400'}`}
+    >
+      <Icon size={24} strokeWidth={view === targetView ? 2.5 : 2} />
+      {/* スマホのみアクティブなボタンの下に小さなインジケータを表示 (オプション) */}
+      <span className="text-[10px] mt-1 md:hidden">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20 safe-area-padding">
+    // pb-20 を追加して、下部メニューの後ろにコンテンツが隠れないように調整
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20 md:pb-8 safe-area-padding">
       {view === 'focus' && <FocusMode />}
 
-      {/* ヘッダー */}
+      {/* ヘッダー (PCではメニューを表示、スマホではタイトルのみ) */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <Book className="text-indigo-600" /> Log
           </h1>
-          <nav className="flex gap-2">
-            <button onClick={() => setView('dashboard')} className={`p-2 rounded-full ${view === 'dashboard' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}><Book size={24} /></button>
-            <button onClick={() => setView('add')} className={`p-2 rounded-full ${view === 'add' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}><Plus size={24} /></button>
-            <button onClick={() => setView('stats')} className={`p-2 rounded-full ${view === 'stats' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}><BarChart2 size={24} /></button>
+          {/* PC用ナビゲーション (スマホサイズ md未満 では隠す) */}
+          <nav className="hidden md:flex gap-2">
+            <NavButton targetView="dashboard" icon={Book} label="本棚" />
+            <NavButton targetView="add" icon={Plus} label="追加" />
+            <NavButton targetView="stats" icon={BarChart2} label="記録" />
           </nav>
         </div>
       </header>
@@ -178,7 +193,7 @@ export default function App() {
           <div className="space-y-4">
             {books.length === 0 ? (
               <div className="text-center py-20">
-                <p className="text-gray-400 mb-4">右上の ＋ ボタンから<br/>本を登録してください</p>
+                <p className="text-gray-400 mb-4">下の ＋ ボタンから<br/>本を登録してください</p>
                 <button onClick={() => setView('add')} className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-lg">本を登録する</button>
               </div>
             ) : (
@@ -356,11 +371,19 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* スマホ用ボトムナビゲーション (PCサイズの md以上 では隠す) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 h-16 flex justify-around items-center z-40 safe-area-padding-bottom">
+         <NavButton targetView="dashboard" icon={Book} label="本棚" />
+         <NavButton targetView="add" icon={Plus} label="追加" />
+         <NavButton targetView="stats" icon={BarChart2} label="記録" />
+      </nav>
       
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         .animate-fade-in { animation: fade-in 0.5s ease-out; }
         .safe-area-padding { padding-bottom: env(safe-area-inset-bottom); }
+        .safe-area-padding-bottom { padding-bottom: env(safe-area-inset-bottom); }
       `}</style>
     </div>
   );
