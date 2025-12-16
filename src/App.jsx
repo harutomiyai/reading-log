@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Image as ImageIcon, Palette } from 'lucide-react';
+import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Image as ImageIcon, Palette, Tag } from 'lucide-react';
 
 export default function App() {
   // --- データ管理 ---
@@ -11,8 +11,20 @@ export default function App() {
   // --- 手動登録用の入力データ ---
   const [inputTitle, setInputTitle] = useState('');
   const [inputAuthor, setInputAuthor] = useState('');
+  const [inputCategory, setInputCategory] = useState('文芸書'); // カテゴリー
   const [coverType, setCoverType] = useState('color'); // 'color' または 'url'
   const [coverValue, setCoverValue] = useState('bg-indigo-500'); // 色クラス または URL
+
+  // カテゴリーリスト
+  const categories = [
+    "文芸書",
+    "ビジネス書・経済・経営",
+    "実用書",
+    "絵本・児童書",
+    "学習参考書",
+    "専門書",
+    "コミック・雑誌"
+  ];
 
   // 選択できる表紙の色リスト
   const colorOptions = [
@@ -49,6 +61,7 @@ export default function App() {
       id: Date.now().toString(),
       title: inputTitle,
       authors: [inputAuthor || '著者不明'],
+      category: inputCategory, // カテゴリーを保存
       status: 'reading',
       addedAt: new Date().toISOString(),
       completedAt: null,
@@ -62,6 +75,7 @@ export default function App() {
     // 入力欄をリセットして一覧に戻る
     setInputTitle('');
     setInputAuthor('');
+    setInputCategory('文芸書');
     setCoverType('color');
     setCoverValue('bg-indigo-500');
     setView('dashboard');
@@ -161,23 +175,21 @@ export default function App() {
         ${view === targetView ? 'text-indigo-600' : 'text-gray-400'}`}
     >
       <Icon size={24} strokeWidth={view === targetView ? 2.5 : 2} />
-      {/* スマホのみアクティブなボタンの下に小さなインジケータを表示 (オプション) */}
       <span className="text-[10px] mt-1 md:hidden">{label}</span>
     </button>
   );
 
   return (
-    // pb-20 を追加して、下部メニューの後ろにコンテンツが隠れないように調整
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-20 md:pb-8 safe-area-padding">
       {view === 'focus' && <FocusMode />}
 
-      {/* ヘッダー (PCではメニューを表示、スマホではタイトルのみ) */}
+      {/* ヘッダー */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <Book className="text-indigo-600" /> Log
           </h1>
-          {/* PC用ナビゲーション (スマホサイズ md未満 では隠す) */}
+          {/* PC用ナビゲーション */}
           <nav className="hidden md:flex gap-2">
             <NavButton targetView="dashboard" icon={Book} label="本棚" />
             <NavButton targetView="add" icon={Plus} label="追加" />
@@ -216,7 +228,15 @@ export default function App() {
                           <h3 className="font-bold line-clamp-2 text-sm">{book.title}</h3>
                           <button onClick={(e) => deleteBook(e, book.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{book.authors[0]}</p>
+                        {/* カテゴリー表示 */}
+                        {book.category && (
+                          <div className="mb-1">
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500 font-medium">
+                              {book.category}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400">{book.authors[0]}</p>
                         <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                           <Clock size={12}/> {formatDuration(totalSeconds)}
                         </div>
@@ -239,7 +259,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- 登録画面 (手動入力のみ) --- */}
+        {/* --- 登録画面 (手動入力) --- */}
         {view === 'add' && (
           <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
             <h2 className="text-lg font-bold flex items-center gap-2">
@@ -247,6 +267,22 @@ export default function App() {
             </h2>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">カテゴリー</label>
+                <div className="relative">
+                  <Tag size={16} className="absolute left-3 top-3 text-gray-400" />
+                  <select
+                    value={inputCategory}
+                    onChange={(e) => setInputCategory(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">本のタイトル <span className="text-red-500">*</span></label>
                 <input 
@@ -272,7 +308,6 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">表紙の設定</label>
                 
-                {/* タブ切り替え */}
                 <div className="flex gap-2 mb-4">
                   <button 
                     onClick={() => setCoverType('color')}
@@ -288,7 +323,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* 色選択パネル */}
                 {coverType === 'color' && (
                   <div className="grid grid-cols-6 gap-2">
                     {colorOptions.map((color) => (
@@ -301,7 +335,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* URL入力パネル */}
                 {coverType === 'url' && (
                   <div>
                     <input 
@@ -315,7 +348,6 @@ export default function App() {
                   </div>
                 )}
                 
-                {/* プレビュー */}
                 <div className="mt-4 flex justify-center">
                   <div className={`w-24 h-32 rounded shadow-md flex items-center justify-center text-white text-center p-2 text-xs font-bold overflow-hidden ${coverType === 'color' ? coverValue : 'bg-gray-100'}`}>
                     {coverType === 'url' && coverValue && !coverValue.startsWith('bg-') ? (
