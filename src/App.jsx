@@ -3,7 +3,7 @@ import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, Pe
 
 export default function App() {
   // --- データ管理 ---
-  const [view, setView] = useState('dashboard'); // 画面切り替え
+  const [view, setView] = useState('dashboard'); // dashboard, add, stats, focus
   const [books, setBooks] = useState([]);        // 本のリスト
   const [logs, setLogs] = useState([]);          // 読書記録ログ
   const [activeSession, setActiveSession] = useState(null); // 現在読書中データ
