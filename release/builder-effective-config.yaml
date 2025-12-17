@@ -1,0 +1,14 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.example.readinglog
+productName: ReadingLog
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+files:
+  - filter:
+      - dist/**/*
+      - electron/main.cjs
+electronVersion: 39.2.7
