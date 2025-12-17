@@ -2,7 +2,7 @@
 export default {
   content: [
     "./index.html",
-    "./**/*.{js,ts,jsx,tsx}", // ← ここを変更しました（すべてのフォルダを見る設定）
+    "./src/**/*.{js,ts,jsx,tsx}", // ← ここを src フォルダ限定に戻しました
   ],
   theme: {
     extend: {},

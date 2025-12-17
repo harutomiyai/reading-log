@@ -380,7 +380,7 @@ export default function App() {
   const wishlistBooks = books.filter(b => b.status === 'wish');
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden pt-8"> {/* ← Macアプリ用の余白 pt-8 を追加済み */}
       {view === 'focus' && <FocusMode />}
 
       <aside className="hidden md:flex w-64 flex-col bg-white border-r h-screen">
