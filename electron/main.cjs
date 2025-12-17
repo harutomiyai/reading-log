@@ -12,17 +12,9 @@ function createWindow() {
     },
   });
 
-  // ★ここを追加：開発者ツールを開く
-  win.webContents.openDevTools();
+  // 開発者ツールは開かない設定（行を削除済み）
 
   if (app.isPackaged) {
-    // 本番ビルド時の読み込み
-    // エラーが出たときにパスが合っているか確認しやすいようにコンソールに出力
-    console.log(
-      "Loading file from:",
-      path.join(__dirname, "../dist/index.html")
-    );
-
     win.loadFile(path.join(__dirname, "../dist/index.html")).catch((e) => {
       console.error("Failed to load index.html:", e);
     });
