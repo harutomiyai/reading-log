@@ -37,8 +37,13 @@
     "productName": "ReadingLog",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"],
-      "icon": "build/icon.icos"
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "universal"
+        ]
+      },
+      "icon": "build/icon.icns"
     },
     "files": [
       "dist/**/*",
