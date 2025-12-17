@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight, RotateCcw, Bell, MoreVertical } from 'lucide-react';
+import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight, RotateCcw, Bell, MoreVertical, User } from 'lucide-react';
 
 export default function App() {
   // --- データ管理 ---
@@ -7,7 +7,11 @@ export default function App() {
   const [books, setBooks] = useState([]);        // 本のリスト
   const [logs, setLogs] = useState([]);          // 読書記録ログ
   const [activeSession, setActiveSession] = useState(null); // 現在読書中データ
-  const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'gallery' (PC用表示モード)
+  
+  // 表示モード (初期値をローカルストレージから取得)
+  const [displayMode, setDisplayMode] = useState(() => {
+    return localStorage.getItem('reading_app_display_mode') || 'list';
+  });
 
   // --- リマインダー設定データ (曜日ごとの時間) ---
   const [reminders, setReminders] = useState({
@@ -63,6 +67,9 @@ export default function App() {
   useEffect(() => { localStorage.setItem('reading_app_books', JSON.stringify(books)); }, [books]);
   useEffect(() => { localStorage.setItem('reading_app_logs', JSON.stringify(logs)); }, [logs]);
   useEffect(() => { localStorage.setItem('reading_app_reminders', JSON.stringify(reminders)); }, [reminders]);
+  
+  // 表示モードの保存
+  useEffect(() => { localStorage.setItem('reading_app_display_mode', displayMode); }, [displayMode]);
 
   // --- 通知チェック処理 (10秒ごとに確認) ---
   useEffect(() => {
@@ -350,20 +357,20 @@ export default function App() {
     // ギャラリー表示
     if (displayMode === 'gallery') {
       return (
-         <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer bg-gray-50">
+         <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow hover:shadow-xl transition-all group cursor-pointer bg-white border border-gray-100">
             <div className={`absolute inset-0 flex items-center justify-center text-white text-center p-4 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
               {book.coverType === 'url' ? (
                 <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
               ) : (
-                <span className="font-bold text-lg line-clamp-4 leading-relaxed tracking-wider">{book.title}</span>
+                <span className="font-bold text-lg line-clamp-4 leading-relaxed tracking-wider drop-shadow-md">{book.title}</span>
               )}
             </div>
             <div className="absolute inset-0 bg-black/80 text-white p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] px-2 py-1 rounded bg-white/20 backdrop-blur-md">{book.category || '未分類'}</span>
                 <div className="flex gap-2">
-                  <button onClick={(e) => startEditingBook(e, book)} className="hover:text-indigo-300 transition-colors"><Edit size={16}/></button>
-                  <button onClick={(e) => deleteBook(e, book.id)} className="hover:text-red-300 transition-colors"><Trash2 size={16}/></button>
+                  <button onClick={(e) => startEditingBook(e, book)} className="hover:text-indigo-300 transition-colors bg-black/30 p-1.5 rounded-full"><Edit size={14}/></button>
+                  <button onClick={(e) => deleteBook(e, book.id)} className="hover:text-red-300 transition-colors bg-black/30 p-1.5 rounded-full"><Trash2 size={14}/></button>
                 </div>
               </div>
               <div className="space-y-1">
@@ -392,67 +399,82 @@ export default function App() {
       );
     }
 
-    // リスト表示 (刷新版)
+    // リスト表示 (デザイン改善・シャドウ削除・2列対応向けシンプル化)
     return (
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-start hover:shadow-md transition-shadow relative">
+      <div className="group bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row gap-4 items-start transition-colors duration-200 relative overflow-hidden hover:border-indigo-300">
         {/* Cover */}
-        <div className={`w-16 h-24 rounded shadow-sm flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+        <div className={`w-20 h-28 sm:w-16 sm:h-24 rounded-md flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-100' : book.coverValue}`}>
            {book.coverType === 'url' ? (
-             <img src={book.coverValue} className="w-full h-full object-cover rounded" onError={(e) => e.target.style.display = 'none'} alt="" />
+             <img src={book.coverValue} className="w-full h-full object-cover rounded-md" onError={(e) => e.target.style.display = 'none'} alt="" />
            ) : (
-             <span className="font-bold line-clamp-3">{book.title}</span>
+             <span className="font-bold line-clamp-3 drop-shadow-sm">{book.title}</span>
            )}
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0 py-1">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <h3 className="font-bold text-base text-gray-800 line-clamp-2 leading-tight">{book.title}</h3>
-              <p className="text-xs text-gray-500 line-clamp-1">{book.authors[0]}</p>
+        {/* Info Area */}
+        <div className="flex-1 min-w-0 w-full">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                {book.category && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                    {book.category}
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-base text-gray-900 line-clamp-2 leading-snug">{book.title}</h3>
+              <p className="text-xs text-gray-500 line-clamp-1 flex items-center gap-1">
+                <User size={10} className="text-gray-400" />
+                {book.authors[0]}
+              </p>
             </div>
             
             {/* Menu Button */}
-            <div className="relative ml-2">
+            <div className="relative flex-shrink-0">
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
               >
-                <MoreVertical size={20} />
+                <MoreVertical size={16} />
               </button>
               
               {/* Dropdown Menu */}
               {showMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}></div>
-                  <div className="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-20 animate-fade-in overflow-hidden">
-                    <button onClick={(e) => { startEditingBook(e, book); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"><Edit size={14}/> 編集</button>
-                    <button onClick={(e) => { deleteBook(e, book.id); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"><Trash2 size={14}/> 削除</button>
+                  <div className="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20 overflow-hidden">
+                    <button onClick={(e) => { startEditingBook(e, book); setShowMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit size={12}/> 編集</button>
+                    <div className="h-px bg-gray-100 my-0.5"></div>
+                    <button onClick={(e) => { deleteBook(e, book.id); setShowMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={12}/> 削除</button>
                   </div>
                 </>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 mt-3">
-            {book.category && <span className="text-[10px] px-2 py-1 bg-gray-100 text-gray-600 rounded-md font-medium">{book.category}</span>}
-            {!isWishlist && <span className="text-xs text-gray-400 font-mono flex items-center gap-1"><Clock size={12}/> {formatDuration(totalSeconds)}</span>}
-          </div>
-          
-          {/* Main Actions Bar */}
-          <div className="mt-4 flex items-center gap-2">
-             {isWishlist ? (
-                <button onClick={(e) => moveToReading(e, book.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"><ArrowRight size={14}/> 読む</button>
-             ) : (
-                book.status === 'reading' ? (
-                   <>
-                     <button onClick={() => startReading(book)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"><Play size={14}/> 読む</button>
-                     <button onClick={(e) => completeBook(e, book.id)} className="bg-white hover:bg-green-50 text-green-600 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"><CheckCircle size={14}/> 完了</button>
-                   </>
-                ) : (
-                   <button onClick={(e) => undoCompleteBook(e, book.id)} className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"><RotateCcw size={14}/> 未完了に戻す</button>
-                )
-             )}
+          <div className="mt-3 flex items-center justify-between">
+            {!isWishlist && (
+              <span className="flex items-center gap-1 text-xs text-gray-500 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                <Clock size={10} className="text-gray-400"/> 
+                {formatDuration(totalSeconds)}
+              </span>
+            )}
+            
+            {/* Compact Status/Action */}
+            <div className="flex items-center gap-2 ml-auto">
+               {isWishlist ? (
+                  <button onClick={(e) => moveToReading(e, book.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-colors"><ArrowRight size={12}/> 読む</button>
+               ) : (
+                  book.status === 'reading' ? (
+                     <>
+                       <button onClick={() => startReading(book)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-colors"><Play size={12} fill="currentColor"/> 読む</button>
+                       <button onClick={(e) => completeBook(e, book.id)} className="text-gray-400 hover:text-green-600 p-1.5 rounded-md hover:bg-green-50 transition-colors" title="完了にする"><CheckCircle size={18}/></button>
+                     </>
+                  ) : (
+                     <button onClick={(e) => undoCompleteBook(e, book.id)} className="text-gray-400 hover:text-indigo-600 p-1.5 rounded-md hover:bg-indigo-50 transition-colors" title="未完了に戻す"><RotateCcw size={16}/></button>
+                  )
+               )}
+            </div>
           </div>
         </div>
       </div>
@@ -503,7 +525,7 @@ export default function App() {
                   <button onClick={() => setView('add')} className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-lg">本を追加する</button>
                 </div>
               ) : (
-                <div className={`${displayMode === 'gallery' ? 'hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}`}>
+                <div className={`${displayMode === 'gallery' ? 'hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}`}>
                   {dashboardBooks.map(book => <BookCard key={book.id} book={book} />)}
                 </div>
               )}
@@ -525,14 +547,13 @@ export default function App() {
                   <button onClick={() => setView('add')} className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-lg">本を探して追加</button>
                 </div>
               ) : (
-                <div className={`${displayMode === 'gallery' ? 'hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}`}>
+                <div className={`${displayMode === 'gallery' ? 'hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}`}>
                   {wishlistBooks.map(book => <BookCard key={book.id} book={book} isWishlist={true} />)}
                 </div>
               )}
             </div>
           )}
 
-          {/* ... Add, Stats, Reminders Views remain unchanged (included in full output) ... */}
           {view === 'add' && (
             <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border space-y-6 relative animate-fade-in mt-6 md:mt-0">
               <button onClick={() => { resetForm(); setView('dashboard'); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
