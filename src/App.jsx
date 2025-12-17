@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight, RotateCcw } from 'lucide-react';
+import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight, RotateCcw, Bell, MoreVertical } from 'lucide-react';
 
 export default function App() {
   // --- データ管理 ---
-  const [view, setView] = useState('dashboard'); // dashboard, add, stats, focus, wishlist
+  const [view, setView] = useState('dashboard'); // dashboard, add, stats, focus, wishlist, reminders
   const [books, setBooks] = useState([]);        // 本のリスト
   const [logs, setLogs] = useState([]);          // 読書記録ログ
   const [activeSession, setActiveSession] = useState(null); // 現在読書中データ
   const [displayMode, setDisplayMode] = useState('list'); // 'list' or 'gallery' (PC用表示モード)
+
+  // --- リマインダー設定データ (曜日ごとの時間) ---
+  const [reminders, setReminders] = useState({
+    Mon: '', Tue: '', Wed: '', Thu: '', Fri: '', Sat: '', Sun: ''
+  });
+  const [notificationPermission, setNotificationPermission] = useState('default');
 
   // --- フォーム用データ ---
   const [editingId, setEditingId] = useState(null);
   const [inputTitle, setInputTitle] = useState('');
   const [inputAuthor, setInputAuthor] = useState('');
   const [inputCategory, setInputCategory] = useState('文芸書');
-  const [inputCoverUrl, setInputCoverUrl] = useState(''); // 画像URL用ステート
+  const [inputCoverUrl, setInputCoverUrl] = useState('');
 
-  // カテゴリー定義とテーマカラーの紐付け
+  // カテゴリー定義
   const CATEGORY_SETTINGS = {
     "文芸書": { color: "bg-purple-500", code: "#a855f7" },
     "ビジネス書・経済・経営": { color: "bg-blue-600", code: "#2563eb" },
@@ -26,20 +32,81 @@ export default function App() {
     "専門書": { color: "bg-slate-600", code: "#475569" },
     "コミック・雑誌": { color: "bg-pink-500", code: "#ec4899" }
   };
-
   const categories = Object.keys(CATEGORY_SETTINGS);
+
+  const daysMap = [
+    { key: 'Mon', label: '月曜日' },
+    { key: 'Tue', label: '火曜日' },
+    { key: 'Wed', label: '水曜日' },
+    { key: 'Thu', label: '木曜日' },
+    { key: 'Fri', label: '金曜日' },
+    { key: 'Sat', label: '土曜日' },
+    { key: 'Sun', label: '日曜日' },
+  ];
 
   // --- 初期ロード ---
   useEffect(() => {
     const savedBooks = localStorage.getItem('reading_app_books');
     const savedLogs = localStorage.getItem('reading_app_logs');
+    const savedReminders = localStorage.getItem('reading_app_reminders');
+    
     if (savedBooks) setBooks(JSON.parse(savedBooks));
     if (savedLogs) setLogs(JSON.parse(savedLogs));
+    if (savedReminders) setReminders(JSON.parse(savedReminders));
+
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   // --- データ保存 ---
   useEffect(() => { localStorage.setItem('reading_app_books', JSON.stringify(books)); }, [books]);
   useEffect(() => { localStorage.setItem('reading_app_logs', JSON.stringify(logs)); }, [logs]);
+  useEffect(() => { localStorage.setItem('reading_app_reminders', JSON.stringify(reminders)); }, [reminders]);
+
+  // --- 通知チェック処理 (10秒ごとに確認) ---
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+
+    const checkReminders = () => {
+      if (notificationPermission !== 'granted') return;
+
+      const now = new Date();
+      // 現在の曜日 (Mon, Tue...)
+      const dayStr = now.toLocaleDateString('en-US', { weekday: 'short' });
+      // 現在の時刻 (HH:mm)
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+
+      // 秒が00〜10の間だけ発火（多重発火防止のため簡易的な制御）
+      if (now.getSeconds() > 10) return;
+
+      if (reminders[dayStr] === timeStr) {
+        // すでに通知済みかどうかのフラグ管理などは省略（1分間に1回通知）
+        new Notification('読書の時間です📖', {
+          body: '設定した時間になりました。リラックスして読書を楽しみましょう。',
+          silent: false
+        });
+      }
+    };
+
+    const interval = setInterval(checkReminders, 10000); // 10秒ごとにチェック
+    return () => clearInterval(interval);
+  }, [reminders, notificationPermission]);
+
+  // --- 通知許可リクエスト ---
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      alert('この環境は通知に対応していません。');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') {
+      new Notification('設定完了', { body: '通知が許可されました！' });
+    }
+  };
 
   // --- フォームリセット ---
   const resetForm = () => {
@@ -61,7 +128,7 @@ export default function App() {
     setView('add');
   };
 
-  // --- 本の保存 (新規/更新) ---
+  // --- 本の保存 ---
   const handleSaveBook = (targetStatus = 'reading') => {
     if (!inputTitle.trim()) { alert('本のタイトルを入力してください'); return; }
 
@@ -120,7 +187,6 @@ export default function App() {
     }
   };
 
-  // 完了を取り消す（読書中に戻す）
   const undoCompleteBook = (e, bookId) => {
     e.stopPropagation();
     if (confirm('未完了（読書中）に戻しますか？')) {
@@ -157,6 +223,10 @@ export default function App() {
     setView('dashboard');
   };
 
+  const updateReminder = (dayKey, time) => {
+    setReminders(prev => ({ ...prev, [dayKey]: time }));
+  };
+
   // --- ヘルパー関数 ---
   const formatDuration = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -164,7 +234,7 @@ export default function App() {
     return h > 0 ? `${h}時間 ${m}分` : `${m}分`;
   };
 
-  // --- コンポーネント: 没入モード ---
+  // --- Focus Mode ---
   const FocusMode = () => {
     const [now, setNow] = useState(new Date());
     useEffect(() => {
@@ -195,21 +265,18 @@ export default function App() {
     );
   };
 
-  // --- コンポーネント: 円グラフ ---
+  // --- Pie Chart ---
   const CategoryPieChart = () => {
     const stats = {};
     categories.forEach(cat => stats[cat] = 0);
-
     logs.forEach(log => {
       const book = books.find(b => b.id === log.bookId);
       if (book && book.category) {
         stats[book.category] = (stats[book.category] || 0) + log.durationSeconds;
       }
     });
-
     const totalSeconds = Object.values(stats).reduce((a, b) => a + b, 0);
     if (totalSeconds === 0) return <div className="text-center text-gray-400 py-10">データがありません</div>;
-
     let currentDeg = 0;
     const gradients = categories.map(cat => {
       const value = stats[cat];
@@ -220,9 +287,7 @@ export default function App() {
       currentDeg += deg;
       return str;
     }).filter(Boolean).join(', ');
-
     const pieStyle = { background: `conic-gradient(${gradients})` };
-
     return (
       <div className="flex flex-col md:flex-row items-center gap-8">
         <div className="flex justify-center flex-1">
@@ -277,15 +342,15 @@ export default function App() {
     </button>
   );
 
-  // --- 本のカード表示コンポーネント ---
+  // --- Book Card ---
   const BookCard = ({ book, isWishlist = false }) => {
+    const [showMenu, setShowMenu] = useState(false);
     const totalSeconds = logs.filter(l => l.bookId === book.id).reduce((acc, log) => acc + log.durationSeconds, 0);
     
-    // --- ギャラリー表示: 通常は表紙のみ。ホバーで詳細とアクション ---
+    // ギャラリー表示
     if (displayMode === 'gallery') {
       return (
          <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer bg-gray-50">
-            {/* 通常レイヤー (表紙) */}
             <div className={`absolute inset-0 flex items-center justify-center text-white text-center p-4 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
               {book.coverType === 'url' ? (
                 <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
@@ -293,8 +358,6 @@ export default function App() {
                 <span className="font-bold text-lg line-clamp-4 leading-relaxed tracking-wider">{book.title}</span>
               )}
             </div>
-
-            {/* ホバーオーバーレイ (詳細 & アクション) */}
             <div className="absolute inset-0 bg-black/80 text-white p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] px-2 py-1 rounded bg-white/20 backdrop-blur-md">{book.category || '未分類'}</span>
@@ -303,7 +366,6 @@ export default function App() {
                   <button onClick={(e) => deleteBook(e, book.id)} className="hover:text-red-300 transition-colors"><Trash2 size={16}/></button>
                 </div>
               </div>
-
               <div className="space-y-1">
                 <h3 className="font-bold text-sm line-clamp-3 leading-snug">{book.title}</h3>
                 <p className="text-xs text-gray-300 line-clamp-1">{book.authors[0]}</p>
@@ -311,7 +373,6 @@ export default function App() {
                   <div className="flex items-center gap-1 text-xs text-indigo-300 mt-1 font-mono"><Clock size={12}/> {formatDuration(totalSeconds)}</div>
                 )}
               </div>
-
               <div className="pt-2 border-t border-white/20">
                 {isWishlist ? (
                   <button onClick={(e) => moveToReading(e, book.id)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"><ArrowRight size={14}/> 読む</button>
@@ -331,46 +392,68 @@ export default function App() {
       );
     }
 
-    // --- リスト表示 ---
+    // リスト表示 (刷新版)
     return (
-      <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-center hover:shadow-md transition-shadow relative overflow-hidden">
-        <div className={`w-16 h-20 rounded overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-start hover:shadow-md transition-shadow relative">
+        {/* Cover */}
+        <div className={`w-16 h-24 rounded shadow-sm flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
            {book.coverType === 'url' ? (
-             <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
+             <img src={book.coverValue} className="w-full h-full object-cover rounded" onError={(e) => e.target.style.display = 'none'} alt="" />
            ) : (
              <span className="font-bold line-clamp-3">{book.title}</span>
            )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="font-bold text-sm truncate pr-2">{book.title}</h3>
-            {/* ホバー時のみ表示する編集削除 */}
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 top-4 bg-white/90 px-1 rounded-md shadow-sm">
-              <button onClick={(e) => startEditingBook(e, book)} className="text-gray-400 hover:text-indigo-500"><Edit size={14}/></button>
-              <button onClick={(e) => deleteBook(e, book.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
+        {/* Info */}
+        <div className="flex-1 min-w-0 py-1">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <h3 className="font-bold text-base text-gray-800 line-clamp-2 leading-tight">{book.title}</h3>
+              <p className="text-xs text-gray-500 line-clamp-1">{book.authors[0]}</p>
+            </div>
+            
+            {/* Menu Button */}
+            <div className="relative ml-2">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <MoreVertical size={20} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}></div>
+                  <div className="absolute right-0 top-8 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-20 animate-fade-in overflow-hidden">
+                    <button onClick={(e) => { startEditingBook(e, book); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"><Edit size={14}/> 編集</button>
+                    <button onClick={(e) => { deleteBook(e, book.id); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"><Trash2 size={14}/> 削除</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-          <p className="text-xs text-gray-500 truncate mb-1">{book.authors[0]}</p>
-          <div className="flex items-center gap-3">
-            {book.category && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{book.category}</span>}
-            {!isWishlist && <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Clock size={10}/> {formatDuration(totalSeconds)}</span>}
-          </div>
-        </div>
 
-        <div className="flex-shrink-0 self-center pl-2">
-            {isWishlist ? (
-               <button onClick={(e) => moveToReading(e, book.id)} className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition"><ArrowRight size={20}/></button>
-            ) : (
-              book.status === 'reading' ? (
-                <div className="flex gap-2">
-                  <button onClick={() => startReading(book)} className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-sm transition"><Play size={20} fill="currentColor" /></button>
-                  <button onClick={(e) => completeBook(e, book.id)} className="p-2 text-gray-300 hover:text-green-500 transition"><CheckCircle size={20}/></button>
-                </div>
-              ) : (
-                <button onClick={(e) => undoCompleteBook(e, book.id)} className="p-2 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full transition" title="未完了に戻す"><RotateCcw size={18}/></button>
-              )
-            )}
+          <div className="flex items-center gap-3 mt-3">
+            {book.category && <span className="text-[10px] px-2 py-1 bg-gray-100 text-gray-600 rounded-md font-medium">{book.category}</span>}
+            {!isWishlist && <span className="text-xs text-gray-400 font-mono flex items-center gap-1"><Clock size={12}/> {formatDuration(totalSeconds)}</span>}
+          </div>
+          
+          {/* Main Actions Bar */}
+          <div className="mt-4 flex items-center gap-2">
+             {isWishlist ? (
+                <button onClick={(e) => moveToReading(e, book.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"><ArrowRight size={14}/> 読む</button>
+             ) : (
+                book.status === 'reading' ? (
+                   <>
+                     <button onClick={() => startReading(book)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"><Play size={14}/> 読む</button>
+                     <button onClick={(e) => completeBook(e, book.id)} className="bg-white hover:bg-green-50 text-green-600 border border-green-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"><CheckCircle size={14}/> 完了</button>
+                   </>
+                ) : (
+                   <button onClick={(e) => undoCompleteBook(e, book.id)} className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"><RotateCcw size={14}/> 未完了に戻す</button>
+                )
+             )}
+          </div>
         </div>
       </div>
     );
@@ -380,7 +463,7 @@ export default function App() {
   const wishlistBooks = books.filter(b => b.status === 'wish');
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden pt-8"> {/* ← Macアプリ用の余白 pt-8 を追加済み */}
+    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden pt-8">
       {view === 'focus' && <FocusMode />}
 
       <aside className="hidden md:flex w-64 flex-col bg-white border-r h-screen">
@@ -392,6 +475,7 @@ export default function App() {
           <SidebarButton targetView="wishlist" icon={Bookmark} label="読みたい本" />
           <SidebarButton targetView="add" icon={Plus} label="本を追加" />
           <SidebarButton targetView="stats" icon={BarChart2} label="読書記録" />
+          <SidebarButton targetView="reminders" icon={Bell} label="通知設定" />
         </nav>
         <div className="p-4 text-xs text-gray-400 text-center">Reading Log App</div>
       </aside>
@@ -448,6 +532,7 @@ export default function App() {
             </div>
           )}
 
+          {/* ... Add, Stats, Reminders Views remain unchanged (included in full output) ... */}
           {view === 'add' && (
             <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border space-y-6 relative animate-fade-in mt-6 md:mt-0">
               <button onClick={() => { resetForm(); setView('dashboard'); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
@@ -528,6 +613,43 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {view === 'reminders' && (
+            <div className="space-y-6 max-w-lg mx-auto bg-white p-6 rounded-xl shadow-sm border animate-fade-in">
+              <h2 className="text-xl font-bold flex items-center gap-2"><Bell className="text-indigo-600" /> 通知設定</h2>
+              
+              <div className={`p-4 rounded-xl border ${notificationPermission === 'granted' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-yellow-50 border-yellow-200'}`}>
+                {notificationPermission === 'granted' ? (
+                  <div className="flex items-center gap-2"><CheckCircle size={20}/> 通知は有効です</div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-yellow-800 mb-2">通知許可が必要です</p>
+                    <button onClick={requestNotificationPermission} className="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm">通知を許可する</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {daysMap.map((day) => (
+                  <div key={day.key} className="flex items-center justify-between border-b pb-2 last:border-0">
+                    <span className="font-bold text-gray-700">{day.label}</span>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="time" 
+                        value={reminders[day.key]} 
+                        onChange={(e) => updateReminder(day.key, e.target.value)}
+                        className="border rounded px-2 py-1 text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                      {reminders[day.key] && (
+                        <button onClick={() => updateReminder(day.key, '')} className="text-gray-400 hover:text-red-500"><Trash2 size={18}/></button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-4 text-center">※ アプリ（またはブラウザ）を開いている間のみ通知されます。</p>
+            </div>
+          )}
         </main>
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 h-16 flex justify-around items-center z-40 safe-area-padding-bottom">
@@ -535,6 +657,7 @@ export default function App() {
            <NavButton targetView="wishlist" icon={Bookmark} label="読みたい" />
            <NavButton targetView="add" icon={Plus} label="追加" />
            <NavButton targetView="stats" icon={BarChart2} label="記録" />
+           <NavButton targetView="reminders" icon={Bell} label="通知" />
         </nav>
       </div>
       
