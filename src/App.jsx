@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight } from 'lucide-react';
+import { Book, Clock, Plus, BarChart2, Play, StopCircle, CheckCircle, Trash2, PenTool, Tag, Edit, X, PieChart, LayoutGrid, List, Image as ImageIcon, Bookmark, ArrowRight, RotateCcw } from 'lucide-react';
 
 export default function App() {
   // --- データ管理 ---
@@ -62,7 +62,6 @@ export default function App() {
   };
 
   // --- 本の保存 (新規/更新) ---
-  // targetStatus: 'reading' (本棚) or 'wish' (読みたい本)
   const handleSaveBook = (targetStatus = 'reading') => {
     if (!inputTitle.trim()) { alert('本のタイトルを入力してください'); return; }
 
@@ -82,7 +81,6 @@ export default function App() {
         category: inputCategory,
         coverType: coverType,
         coverValue: coverValue
-        // 編集時はステータスを変更しない（必要なら別途機能追加）
       } : book));
     } else {
       const newBook = {
@@ -90,7 +88,7 @@ export default function App() {
         title: inputTitle,
         authors: [inputAuthor || '著者不明'],
         category: inputCategory,
-        status: targetStatus, // 指定されたステータスで登録
+        status: targetStatus,
         addedAt: new Date().toISOString(),
         completedAt: null,
         coverType: coverType,
@@ -99,7 +97,6 @@ export default function App() {
       setBooks(prev => [newBook, ...prev]);
     }
     resetForm();
-    // 登録した先に応じた画面に戻る
     if (targetStatus === 'wish') {
       setView('wishlist');
     } else {
@@ -123,7 +120,14 @@ export default function App() {
     }
   };
 
-  // 読みたい本 -> 本棚へ移動
+  // 完了を取り消す（読書中に戻す）
+  const undoCompleteBook = (e, bookId) => {
+    e.stopPropagation();
+    if (confirm('未完了（読書中）に戻しますか？')) {
+      setBooks(prev => prev.map(b => b.id === bookId ? { ...b, status: 'reading', completedAt: null } : b));
+    }
+  };
+
   const moveToReading = (e, bookId) => {
     e.stopPropagation();
     if (confirm('この本を読み始めますか？\n（本棚に移動します）')) {
@@ -252,7 +256,6 @@ export default function App() {
     );
   };
 
-  // --- PC用サイドバーボタン ---
   const SidebarButton = ({ targetView, icon: Icon, label }) => (
     <button
       onClick={() => { resetForm(); setView(targetView); }}
@@ -264,7 +267,6 @@ export default function App() {
     </button>
   );
 
-  // --- スマホ用ナビボタン ---
   const NavButton = ({ targetView, icon: Icon, label, onClick }) => (
     <button 
       onClick={onClick || (() => { resetForm(); setView(targetView); })} 
@@ -275,96 +277,115 @@ export default function App() {
     </button>
   );
 
-  // --- 本のカード表示コンポーネント (Dashboard/Wishlist共通) ---
+  // --- 本のカード表示コンポーネント ---
   const BookCard = ({ book, isWishlist = false }) => {
     const totalSeconds = logs.filter(l => l.bookId === book.id).reduce((acc, log) => acc + log.durationSeconds, 0);
     
+    // --- ギャラリー表示: 通常は表紙のみ。ホバーで詳細とアクション ---
     if (displayMode === 'gallery') {
       return (
-         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 group hover:shadow-md transition">
-            <div className={`w-full aspect-[2/3] rounded overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-2 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+         <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer bg-gray-50">
+            {/* 通常レイヤー (表紙) */}
+            <div className={`absolute inset-0 flex items-center justify-center text-white text-center p-4 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
               {book.coverType === 'url' ? (
                 <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
               ) : (
-                <span className="font-bold text-sm line-clamp-4">{book.title}</span>
+                <span className="font-bold text-lg line-clamp-4 leading-relaxed tracking-wider">{book.title}</span>
               )}
             </div>
-            <div className="flex-1">
-              <h3 className="font-bold line-clamp-2 text-sm mb-1">{book.title}</h3>
-              <p className="text-xs text-gray-400 mb-2">{book.authors[0]}</p>
-              {book.category && <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500 font-medium mb-2">{book.category}</span>}
-              {!isWishlist && <div className="flex items-center gap-1 text-xs text-gray-500"><Clock size={12}/> {formatDuration(totalSeconds)}</div>}
-            </div>
-            <div className="flex gap-2 mt-auto pt-2 border-t">
-              {isWishlist ? (
-                <button onClick={(e) => moveToReading(e, book.id)} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1"><ArrowRight size={14}/> 読む</button>
-              ) : (
-                book.status === 'reading' ? (
-                  <button onClick={() => startReading(book)} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1"><Play size={14}/> 読む</button>
+
+            {/* ホバーオーバーレイ (詳細 & アクション) */}
+            <div className="absolute inset-0 bg-black/80 text-white p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] px-2 py-1 rounded bg-white/20 backdrop-blur-md">{book.category || '未分類'}</span>
+                <div className="flex gap-2">
+                  <button onClick={(e) => startEditingBook(e, book)} className="hover:text-indigo-300 transition-colors"><Edit size={16}/></button>
+                  <button onClick={(e) => deleteBook(e, book.id)} className="hover:text-red-300 transition-colors"><Trash2 size={16}/></button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm line-clamp-3 leading-snug">{book.title}</h3>
+                <p className="text-xs text-gray-300 line-clamp-1">{book.authors[0]}</p>
+                {!isWishlist && (
+                  <div className="flex items-center gap-1 text-xs text-indigo-300 mt-1 font-mono"><Clock size={12}/> {formatDuration(totalSeconds)}</div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-white/20">
+                {isWishlist ? (
+                  <button onClick={(e) => moveToReading(e, book.id)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"><ArrowRight size={14}/> 読む</button>
                 ) : (
-                  <div className="w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-center text-xs font-bold">完了</div>
-                )
-              )}
-              <div className="flex gap-1">
-                <button onClick={(e) => startEditingBook(e, book)} className="text-gray-300 hover:text-indigo-500 p-2"><Edit size={16}/></button>
-                <button onClick={(e) => deleteBook(e, book.id)} className="text-gray-300 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+                  book.status === 'reading' ? (
+                    <div className="flex gap-2">
+                      <button onClick={() => startReading(book)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors"><Play size={14}/> 読む</button>
+                      <button onClick={(e) => completeBook(e, book.id)} className="px-3 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors" title="読み終わった"><CheckCircle size={16}/></button>
+                    </div>
+                  ) : (
+                    <button onClick={(e) => undoCompleteBook(e, book.id)} className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"><RotateCcw size={14}/> 未完了に戻す</button>
+                  )
+                )}
               </div>
             </div>
          </div>
       );
     }
 
+    // --- リスト表示 ---
     return (
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4">
-        <div className={`w-20 h-28 rounded flex-shrink-0 overflow-hidden shadow-inner flex items-center justify-center text-white text-center p-1 ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
+      <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-center hover:shadow-md transition-shadow relative overflow-hidden">
+        <div className={`w-16 h-20 rounded overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-200' : book.coverValue}`}>
            {book.coverType === 'url' ? (
              <img src={book.coverValue} className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} alt="" />
            ) : (
-             <span className="font-bold text-xs line-clamp-3 leading-tight">{book.title}</span>
+             <span className="font-bold line-clamp-3">{book.title}</span>
            )}
         </div>
-        <div className="flex-1 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold line-clamp-2 text-sm">{book.title}</h3>
-              <div className="flex gap-1">
-                <button onClick={(e) => startEditingBook(e, book)} className="text-gray-300 hover:text-indigo-500 p-1"><Edit size={16}/></button>
-                <button onClick={(e) => deleteBook(e, book.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
-              </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start mb-1">
+            <h3 className="font-bold text-sm truncate pr-2">{book.title}</h3>
+            {/* ホバー時のみ表示する編集削除 */}
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 top-4 bg-white/90 px-1 rounded-md shadow-sm">
+              <button onClick={(e) => startEditingBook(e, book)} className="text-gray-400 hover:text-indigo-500"><Edit size={14}/></button>
+              <button onClick={(e) => deleteBook(e, book.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={14}/></button>
             </div>
-            {book.category && <div className="mb-1"><span className="inline-block px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500 font-medium">{book.category}</span></div>}
-            <p className="text-xs text-gray-400">{book.authors[0]}</p>
-            {!isWishlist && <div className="mt-2 flex items-center gap-1 text-xs text-gray-500"><Clock size={12}/> {formatDuration(totalSeconds)}</div>}
           </div>
-          <div className="flex gap-2 mt-2">
+          <p className="text-xs text-gray-500 truncate mb-1">{book.authors[0]}</p>
+          <div className="flex items-center gap-3">
+            {book.category && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{book.category}</span>}
+            {!isWishlist && <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1"><Clock size={10}/> {formatDuration(totalSeconds)}</span>}
+          </div>
+        </div>
+
+        <div className="flex-shrink-0 self-center pl-2">
             {isWishlist ? (
-               <button onClick={(e) => moveToReading(e, book.id)} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1 shadow"><ArrowRight size={14}/> 読む</button>
+               <button onClick={(e) => moveToReading(e, book.id)} className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition"><ArrowRight size={20}/></button>
             ) : (
               book.status === 'reading' ? (
-                <><button onClick={() => startReading(book)} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1 shadow"><Play size={14}/> 読む</button><button onClick={(e) => completeBook(e, book.id)} className="px-3 bg-green-50 text-green-600 rounded-lg border border-green-200"><CheckCircle size={18}/></button></>
-              ) : (<div className="w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-center text-xs font-bold">完了</div>)
+                <div className="flex gap-2">
+                  <button onClick={() => startReading(book)} className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-sm transition"><Play size={20} fill="currentColor" /></button>
+                  <button onClick={(e) => completeBook(e, book.id)} className="p-2 text-gray-300 hover:text-green-500 transition"><CheckCircle size={20}/></button>
+                </div>
+              ) : (
+                <button onClick={(e) => undoCompleteBook(e, book.id)} className="p-2 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full transition" title="未完了に戻す"><RotateCcw size={18}/></button>
+              )
             )}
-          </div>
         </div>
       </div>
     );
   };
 
-  // メインの表示書籍（本棚用）: 読書中 or 完了
   const dashboardBooks = books.filter(b => b.status === 'reading' || b.status === 'completed');
-  // 読みたい本用
   const wishlistBooks = books.filter(b => b.status === 'wish');
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
       {view === 'focus' && <FocusMode />}
 
-      {/* PC用サイドバー */}
       <aside className="hidden md:flex w-64 flex-col bg-white border-r h-screen">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Book className="text-indigo-600" /> Log
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Book className="text-indigo-600" /> Log</h1>
         </div>
         <nav className="flex-1 px-4 space-y-2">
           <SidebarButton targetView="dashboard" icon={Book} label="本棚" />
@@ -372,24 +393,17 @@ export default function App() {
           <SidebarButton targetView="add" icon={Plus} label="本を追加" />
           <SidebarButton targetView="stats" icon={BarChart2} label="読書記録" />
         </nav>
-        <div className="p-4 text-xs text-gray-400 text-center">
-          Reading Log App
-        </div>
+        <div className="p-4 text-xs text-gray-400 text-center">Reading Log App</div>
       </aside>
 
-      {/* メインエリア */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        {/* スマホ用ヘッダー */}
         <header className="md:hidden bg-white shadow-sm sticky top-0 z-10 flex-shrink-0">
           <div className="px-4 h-16 flex items-center justify-center">
             <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Book className="text-indigo-600" /> Log</h1>
           </div>
         </header>
 
-        {/* スクロール領域 */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
-          
-          {/* --- ダッシュボード (本棚) --- */}
           {view === 'dashboard' && (
             <div className="space-y-6 max-w-5xl mx-auto">
               <div className="flex justify-between items-center">
@@ -399,7 +413,6 @@ export default function App() {
                    <button onClick={() => setDisplayMode('gallery')} className={`p-2 rounded ${displayMode === 'gallery' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}><LayoutGrid size={20} /></button>
                  </div>
               </div>
-
               {dashboardBooks.length === 0 ? (
                 <div className="text-center py-20">
                   <p className="text-gray-400 mb-4">本棚は空です</p>
@@ -413,18 +426,15 @@ export default function App() {
             </div>
           )}
 
-          {/* --- 読みたい本リスト --- */}
           {view === 'wishlist' && (
             <div className="space-y-6 max-w-5xl mx-auto">
               <div className="flex justify-between items-center">
                  <h2 className="text-2xl font-bold flex items-center gap-2"><Bookmark className="text-indigo-600"/> 読みたい本 ({wishlistBooks.length})</h2>
-                 {/* PCのみ表示切り替えボタン */}
                  <div className="hidden md:flex bg-white rounded-lg border p-1 gap-1">
                    <button onClick={() => setDisplayMode('list')} className={`p-2 rounded ${displayMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}><List size={20} /></button>
                    <button onClick={() => setDisplayMode('gallery')} className={`p-2 rounded ${displayMode === 'gallery' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}><LayoutGrid size={20} /></button>
                  </div>
               </div>
-
               {wishlistBooks.length === 0 ? (
                 <div className="text-center py-20">
                   <p className="text-gray-400 mb-4">読みたい本はまだ登録されていません</p>
@@ -438,7 +448,6 @@ export default function App() {
             </div>
           )}
 
-          {/* --- 登録・編集画面 --- */}
           {view === 'add' && (
             <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border space-y-6 relative animate-fade-in mt-6 md:mt-0">
               <button onClick={() => { resetForm(); setView('dashboard'); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
@@ -468,7 +477,6 @@ export default function App() {
                     <input type="text" value={inputCoverUrl} onChange={(e) => setInputCoverUrl(e.target.value)} placeholder="https://..." className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm" />
                   </div>
                   <p className="text-xs text-gray-400 mt-1">※空欄の場合はカテゴリーの色が適用されます</p>
-                  
                   <div className="mt-4 flex justify-center">
                     <div className={`w-24 h-32 rounded shadow-md flex items-center justify-center text-white text-center p-2 text-xs font-bold overflow-hidden ${inputCoverUrl ? 'bg-gray-100' : (CATEGORY_SETTINGS[inputCategory]?.color || 'bg-gray-500')}`}>
                       {inputCoverUrl ? (
@@ -479,7 +487,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
                 <div className="flex gap-3 mt-6 flex-col sm:flex-row">
                   {editingId ? (
                     <button onClick={() => handleSaveBook('reading')} className="w-full bg-gray-800 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-black transition">更新する</button>
@@ -497,19 +504,16 @@ export default function App() {
             </div>
           )}
 
-          {/* --- 統計画面 --- */}
           {view === 'stats' && (
             <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
               <div className="bg-white p-6 rounded-xl shadow-sm border">
                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><PieChart size={20} className="text-indigo-600"/> カテゴリー別読書時間</h3>
                  <CategoryPieChart />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border text-center"><p className="text-xs text-gray-500">総読書時間</p><p className="text-2xl font-bold text-indigo-600">{formatDuration(logs.reduce((a, l) => a + l.durationSeconds, 0))}</p></div>
                 <div className="bg-white p-4 rounded-xl shadow-sm border text-center"><p className="text-xs text-gray-500">完読冊数</p><p className="text-2xl font-bold text-green-600">{dashboardBooks.filter(b => b.status === 'completed').length}</p></div>
               </div>
-
               <div>
                 <h3 className="font-bold text-gray-500 text-sm mb-2">最近の履歴</h3>
                 <div className="space-y-2">
@@ -526,7 +530,6 @@ export default function App() {
           )}
         </main>
 
-        {/* スマホ用ボトムナビゲーション (md以上で隠す) */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 h-16 flex justify-around items-center z-40 safe-area-padding-bottom">
            <NavButton targetView="dashboard" icon={Book} label="本棚" />
            <NavButton targetView="wishlist" icon={Bookmark} label="読みたい" />
