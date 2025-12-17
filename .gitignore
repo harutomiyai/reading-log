@@ -1,1 +1,13 @@
-node_modules
+# 依存ライブラリ
+node_modules/
+
+# Macのシステムファイル
+.DS_Store
+
+# ビルド出力フォルダ (これらをGitHubに上げないようにする設定)
+dist/
+release/
+
+# ログファイルなど
+*.log
+.env
