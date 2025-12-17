@@ -399,10 +399,9 @@ export default function App() {
       );
     }
 
-    // リスト表示 (デザイン改善・シャドウ削除・2列対応向けシンプル化)
+    // リスト表示
     return (
       <div className="group bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row gap-4 items-start transition-colors duration-200 relative overflow-hidden hover:border-indigo-300">
-        {/* Cover */}
         <div className={`w-20 h-28 sm:w-16 sm:h-24 rounded-md flex-shrink-0 flex items-center justify-center text-white text-center p-1 text-[10px] leading-tight ${book.coverType === 'url' ? 'bg-gray-100' : book.coverValue}`}>
            {book.coverType === 'url' ? (
              <img src={book.coverValue} className="w-full h-full object-cover rounded-md" onError={(e) => e.target.style.display = 'none'} alt="" />
@@ -411,7 +410,6 @@ export default function App() {
            )}
         </div>
 
-        {/* Info Area */}
         <div className="flex-1 min-w-0 w-full">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1 flex-1">
@@ -429,7 +427,6 @@ export default function App() {
               </p>
             </div>
             
-            {/* Menu Button */}
             <div className="relative flex-shrink-0">
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
@@ -438,7 +435,6 @@ export default function App() {
                 <MoreVertical size={16} />
               </button>
               
-              {/* Dropdown Menu */}
               {showMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}></div>
@@ -460,7 +456,6 @@ export default function App() {
               </span>
             )}
             
-            {/* Compact Status/Action */}
             <div className="flex items-center gap-2 ml-auto">
                {isWishlist ? (
                   <button onClick={(e) => moveToReading(e, book.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 transition-colors"><ArrowRight size={12}/> 読む</button>
@@ -485,10 +480,11 @@ export default function App() {
   const wishlistBooks = books.filter(b => b.status === 'wish');
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden pt-8">
+    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans overflow-hidden">
       {view === 'focus' && <FocusMode />}
 
-      <aside className="hidden md:flex w-64 flex-col bg-white border-r h-screen">
+      {/* PC用サイドバー: 上部パディング pt-10 を追加 */}
+      <aside className="hidden md:flex w-64 flex-col bg-white border-r h-screen pt-10">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Book className="text-indigo-600" /> Log</h1>
         </div>
@@ -503,7 +499,8 @@ export default function App() {
       </aside>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <header className="md:hidden bg-white shadow-sm sticky top-0 z-10 flex-shrink-0">
+        {/* スマホ用ヘッダー: 上部パディング pt-8 を追加 */}
+        <header className="md:hidden bg-white shadow-sm sticky top-0 z-10 flex-shrink-0 pt-8">
           <div className="px-4 h-16 flex items-center justify-center">
             <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Book className="text-indigo-600" /> Log</h1>
           </div>
@@ -554,6 +551,7 @@ export default function App() {
             </div>
           )}
 
+          {/* ... Add, Stats, Reminders Views remain unchanged ... */}
           {view === 'add' && (
             <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border space-y-6 relative animate-fade-in mt-6 md:mt-0">
               <button onClick={() => { resetForm(); setView('dashboard'); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
